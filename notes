@@ -185,6 +185,8 @@ Timeline - more ideas:
     v fuzzy search tolerance
     v name of main .tln file - can be overridden by argument to timeline
     - override names of the filter.py, list.py etc. scripts?
+  - read system-wide config, then user-specific, then project-specific in
+    the current directory, if it exists
   - in link.py, add a check that the tab is still running nvim with the same
     file.
 
@@ -459,4 +461,11 @@ Timeline - indenting: [COMPLETED]
   Indent of date will be max(indents of surrounding elements, ignoring empty
   lines) if printed as a dependency for another element, or the original indent
   if printed explicitly
+
+Timeline - install process:
+  Moved the project to a dedicated git repository ~/projects/timeline. On top-level there are files needed to build the package using Arch build system, in src/ there are the source files themselves.
+
+  The repository is pushed on github. The PKGBUILD.example shouldn't be used directly, but rather copied to ~/pkgbuild/timeline/PKGBUILD, where it should be run by makepkg. It downloads the repository from github and packages the files - the hard work is done by make, which copies the source files to their respective locations in $pkgdir (this is somewhat unellegantly configured in Makefile). During package install by pacman, the file locations reflect the locations in $pkgdir.
+
+  There has been changes in file locations in order to follow linux standards. Default config file is in /etc/timeline.conf, all scripts, nvim config and other files are in /usr/local/lib/timeline/, the main script is symlinked to /usr/local/bin/timeline.
 
