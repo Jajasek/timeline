@@ -1,7 +1,7 @@
 install:
-	mkdir ${DESTDIR}/usr/local/lib/timeline
+#	mkdir ${DESTDIR}/usr/local/lib/timeline
 	shopt -s extglob
-	cp src/!(timeline.conf) ${DESTDIR}/usr/local/lib/timeline/
+	install src/!(timeline.conf) ${DESTDIR}/usr/local/lib/timeline/
 	ln -s ../lib/timeline/timeline ${DESTDIR}/usr/local/bin/timeline
-	cp src/timeline.conf ${DESTDIR}/etc/
+	install src/timeline.conf ${DESTDIR}/etc/
 
