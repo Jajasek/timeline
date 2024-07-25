@@ -1,0 +1,35 @@
+# Maintainer: Jajasek <jachym.mierva@gmail.com>
+pkgname=timeline
+pkgver=r1.bed9ac9
+pkgrel=1
+epoch=
+pkgdesc="Scripts for parsing and filtering structured notes, integrated with neovim and kitty."
+arch=(any)
+url="https://github.com/Jajasek/timeline"
+license=('GPL-3.0-or-later')
+groups=()
+depends=('python-thefuzz' 'kitty' 'neovim')
+makedepends=()
+checkdepends=()
+optdepends=()
+provides=()
+conflicts=()
+replaces=()
+backup=()
+options=()
+install=
+changelog=
+source=("${pkgname}::git+https://github.com/Jajasek/timeline.git")
+noextract=()
+sha256sums=(SKIP)
+validpgpkeys=()
+
+pkgver() {
+  cd "$srcdir/$pkgname"
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+package() {
+  cd "$srcdir/$pkgname"
+	make DESTDIR="$pkgdir/" install
+}

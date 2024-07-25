@@ -1,0 +1,64 @@
+#!/bin/bash
+
+usage() {
+  cat << EOF
+usage: filter-in-terminal-tab [-h] [-f FILE] [--] [FIND ...]
+Open a new kitty tab running filter.py. Positional arguments are joined with
+spaces and passed to filter.py as a single filter term. Any argument after -- is
+parsed like a positional argument, even if it starts with - (I think, see
+'man getopt' if it doesn't work).
+
+Mandatory arguments to long options are mandatory for short options too.
+  -f, --file FILE    the .tln file from which the filter is called
+  -h, --help         show this help message and exit
+EOF
+  exit $1
+}
+
+# Quoting is complicated and error-prone. Suppose this input:
+# $ ./filter-in-terminal-tab "search term" -f '/path/to/file'
+# When -u is not provided, getopt quoes the arguments by single quotes.
+options=$(getopt -l "file:,help" -o "f:,h" -- "$@")
+# so variable options now includes the following string:
+# -f '/path/to/file' -- 'search term'
+
+# $? is the exit code of last-run command (or, more generally, pipeline)
+exitcode=$?
+if [ $exitcode -ne 0 ]
+then
+  usage $exitcode
+fi
+
+# Now we want to pretend that the string returned by getopt were the arguments
+# of this script. In other words, we want to set $1 to the string "-f" (the
+# quotation marks are only delimiters here), $2 to the string "/path/to/file"
+# etc. This is done by following line:
+eval set -- $options
+# the eval command is needed here: set -- $options doesnt care about the meaning
+# of quotation marks, so $2 is set to "'/path/to/file'" and the positional
+# argument is aplitted to "'search" and "term'";
+# set -- "$options" just sets $1 to be "-f 'path/to/file' -- 'search term'".
+
+# Now process the arguments using the standard switch in loop, where the shift
+# command forgots the processed arguments.
+file=""
+while true
+do
+  case $1 in
+    -f|--file)
+      file="--file $2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      ;;
+    --)
+      shift
+      break
+      ;;
+  esac
+done
+
+# So we have the file in $file and the search phrase in "$*".
+kitten @ launch --type=tab --title="$*" --cwd=current --hold .code/filter.py --parent-id $KITTY_WINDOW_ID $file "$*"
+

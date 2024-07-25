@@ -1,0 +1,462 @@
+Sheets:
+  V stats and profs
+    V stats,
+    V profs,
+    V features,
+    V traits
+  V inventory
+    V visual features,
+    V inventory,
+    V money,
+    V weight,
+  magic items
+    attunements,
+    magic items
+  V actions
+  V spellslots
+    V spellcasting ability modifier -> attack modifier, DC
+    V table of known spells
+      V prepared,
+      V range,
+      V casting time,
+      V duration,
+      V damage
+  notes
+    timeline -> locations
+  misc
+  reference
+    detailed info about actions, spells, weapons...
+  V spell slot table
+    
+
+Better weapons table - main dice, +1, ability -> modifiers; damage type
+                     - bonus dice, damage type
+         - Properties: Finesse, light?, Two-handed?, Versatile, Heavy?
+Actions sheet - table of all combat actions/reactions
+              - weapons table
+        - spellcasting attacks table?
+
+Ideas - data bar of HP
+      - inventory: consumables vs other
+      - macro for short/long rest
+      - exhaustion
+      - reduced max HP
+      - active effects
+
+Timeline - goals: [COMPLETED]
+  have one big table of all notes of what happened, in chronological order
+  ideally, it should be human-readable
+  main units should be dates, but there should be a way to quickly assign a
+  location to each note
+  so the idea is to have a way to highlight entering and leaving a location
+  locations could be embedded into one another, for example buildings in towns
+  also there should be a way to have a block of dialog with an npc
+  
+  Now, having this structured information, I seek to have a fast way to filter
+  it based on location/people/topic. The result should include notes that are
+  included in a block corresponding with the location/person/topic, as well as
+  notes that include the relevant word. Those should come with date and
+  identifiers of all blocks they are in. Having a filter result, there should be
+  a link from each note to the corresponding note in the complete timeline.
+
+  Added value: make intersections of filter results
+  Added value: list all blocks the cursor is currently in [COMPLETED]
+
+Timeline - implementation idea:
+  timeline in text file
+  view and edit in vim
+  have a shortcut <1> to python script that will filter the timeline
+  according to the selection (or, in normal mode, word) under cursor, generating
+  a new text file. It would be opened in new terminal tab.
+  The shortcuts would work even in the filter result, but the script would
+  always filter the whole timeline.
+  third shortcut <2> would somehow ask for general search term
+  fourth shortcut <3> would jump from a note in a filter result to the
+  exact note in the complete timeline (opening it in new tab, I suppose - it
+  would be easier to implement than jumping to the already opened one). To
+  accomplish this, the script would generate something like synctex file. The
+  shortcut <3> would invoke second script, giving it the current line
+  number. The script would use the sync file to invoke the timeline with
+  specified cursor position.
+
+  Helper commands:
+    clean all filter results and their sync files
+    list all locations/conversations/(blocks)
+    list all open blocks [COMPLETED]
+
+  Notes:
+    it would be nice if 'gqap' worked in the timeline
+    the filter should have some fuzziness, default ~2 Hamming distance
+    *make nvim highlight the matching opening/closing bracket of a block
+    **make nvim autocomplete name of block when closing
+
+Timeline - interprogram calls: [COMPLETED]
+  nvim: [COMPLETED]
+    <1> in vmode calls filter-n-terminal-tab with arguments:
+          absolute file name
+          visual selection
+        this launches kitty in new tab, sets the title and cwd and inside, it
+        launches filter.py with arguments:
+          --parent-id $KITTY_WINDOW_ID
+          all remaining arguments
+    <1> in nmode is like in vmode, but with the word under cursor instead
+    <2> ask user about filter term and use it as in <1>
+    <3> calls link.py with arguments:
+          absolute file name
+          cursor position
+    <4> calls list.py with arguments:
+          absolute file name
+          cursor line number
+        stdout is displayed in the command window
+    <5> calls list.py with arguments:
+          --generate-date
+          absolute file name
+          cursor line number
+        stdout is put at the cursor position
+  filter.py: [COMPLETED]
+    saves its output to a file and calls nvim with nvim.config
+  list.py: [COMPLETED]
+    outputs to stdout
+  link: [COMPLETED]
+    using .sync opens timeline in nvim with nvim.config
+  timeline: [COMPLETED]
+    without arguments: opens timeline in nvim with nvim.config
+
+Timeline - Structure ideas: [COMPLETED]
+  basic note is a paragraph
+  special command 'DATE(date)' (with or without year? Maybe use command 'YEAR')
+  location blocks would be delimited by commands of type 'ENTER(location)' ...
+  'LEAVE(location)', similar for dialogs and general blocks (i.e. topics of
+  conversations)
+  Maybe it would be good idea to make the commands as short as possible, maybe
+  use some special symbols for syntax
+  special symbol for comments, for example '--'
+
+Timeline - directory structure:
+  ~/bin/timeline              (uses ./.code/timeline.config to open timeline
+                               file in nvim with given config
+             Maybe delegate sub-commands to filter.py?)
+  [campaign name]/
+    timeline.tln              (complete timeline file)
+    .code/
+      venv/
+      filter-in-terminal-tab  (helper command that takes arguments, opens new
+                               tab in terminal and there it runs filter.py with
+                               the arguments and then runs bash)
+      filter.py               (sub-commands filter, clean, intersection?)
+      link.py                 (if sync file exists, jump to timeline.tln)
+      list.py                 (given line number, list open blocks)
+      nvim.config
+      timeline.config         (general setup config - name of main tln file)
+    .filter/
+      [filter term].tln
+      [filter term].sync      (lines correspond one-to-one to lines in
+                               [filter term].tln. First line is the id of parent
+                               kitty window or empty, second line is the path
+                               of the file that was filtered, each other line
+                               is the linenumber of a line in the parent file
+                               that corresponds to the corresponding line in
+                               the [filter term].tln file)
+
+Timeline - useful shortcuts: [COMPLETED]
+  close terminal tab...  <C-S-w>
+  link.py...             <C-z>
+  list...                <C-l>
+  filter selection...    <C-s>
+  filter general...      <C-q>
+
+Timeline - more ideas:
+  (If I were to remake filter.py from scratch, I would have used a different
+  approach:
+  - first tokenize the input, saving it semantically - during this phase, enters
+    and leaves would be matched and each element would get references to those
+    other elements that it needs to be printed before if the original one is
+    matched
+  - filter all elements that match
+  - add elements the matched ones need, replace the others ones with ellipses
+  - print the resulting structure, which should be straightforward because all
+    elements that have to be printed are already in order in the filter result)
+
+  - parse ellipse as special object to use for intersections of searches
+  - highlight the matches in vim
+  - allow more > or < commands on a single line
+  - config:
+    v locale (for days of the week)
+    v fuzzy search tolerance
+    v name of main .tln file - can be overridden by argument to timeline
+    - override names of the filter.py, list.py etc. scripts?
+  - in link.py, add a check that the tab is still running nvim with the same
+    file.
+
+Timeline - ellipses: [COMPLETED]
+  which structure elements can be left out?
+  note: when buffered and then isn't matched
+  description: when choose_print_description returns None
+  date, but I wouldn't count it as a loss of information if the day is empty
+  enter/leave: then the whole block is left out, we realize it when we leave 
+    the block and printed == False
+  
+  in each of those events we shall set a flag, and subsequent print_atom will
+  print an ellipse
+  
+  Where would the ellipse link to? To the line where the first missed structure
+  element begun, which will be saved at the same time when the flag is set
+   -> the linenumber will be the flag
+
+STRUCTURE PROBLEM: [COMPLETED]
+  When two interleaved blocks are printed as open blocks because of a match
+  found inside each of them, they are not printed correctly - they are untied.
+  Moreover, if a match is found only in one of them, the ellipses of the other
+  one are not printed.
+
+  The root cause is that even though we know for sure, wheter a block leaving
+  is to be printed, at the moment of parsing leave, we still don't know whether
+  an interleaved block opening has to be printed BEFORE, INSIDE THE LEAVED
+  BLOCK, or an ellipse has to be printed instead.
+
+  Solution is to save also the leaving line into the list of open block somehow,
+  and then print the leaving only after the printing of all interleaved blocks
+  is decided.
+
+  Suppose, for simplicity, that the blocks are saved as a list of instances of
+  'Block', where each such instance has extra attributes 'name: str' and 
+  'enter: bool'. Right away, all pairs with 'printed == False' can be safely
+  removed from the list, independently of any interleaved blocks (in such case,
+  both the entrance and the leaving should be added to omitted_linenumbers).
+  When a leave with 'printed == True' is parsed, it is added into the list iff
+  there exists an entrance of an interleaved block with 'printed == False'. If
+  there are no interleaved block openings or all such openings had already been
+  printed, simply print the leave and delete the corresponding enter from the
+  list.
+
+  How can a saved pair be resolved and deleted? The only condition that is
+  holding it is that there is an unprinted interleaved block opening. It can
+  disappear in two ways:
+  - The corresponding leave is parsed while 'printed == False' and the block
+    is safely forgotten. The deletion happens in the function 'popblock', but
+    it would be better to handle the situation in the 'else:' in 'case leave'.
+  - There occurs a situation where the block opening has to be printed. This
+    happens exactly in the function 'print_open_blocks'. Since it prints ALL
+    not-yet-printed block openings, it should automatically resolve and print
+    the saved leaving Blocks, too, and delete them.
+  Each of these events can release several saved pairs, but since the saved
+  pairs have 'printed == True', there is no potential of chain reaction.
+
+  Popblock should be modified to detect the need for saving the leave, and to
+  do so intead of popping the enter. EDIT: see 'block_leave'
+  
+  What do I want from the datastructure:
+  - iterate in order in print_open_blocks
+  - append enter or leave
+  - find enter corresponding to a given leave
+  - delete given enter
+  The best choice seems to be a dict indexed by linenumbers, with the block
+  having linenumbers as references between them:
+  - leave has reference to corresponding enter and to blocking enters
+  - blocking enter have reference to the leaves they are blocking
+  - enter has a waiting flag to prevent it being matched with multiple leaves
+  Searching will be done by iterating in reverse order, with returning the
+  first matching non-waiting enter. Appending and iterating is straightforward.
+  When an enter with 'printed == False' is deleted, the references are used to
+  iterate over the leaves it has been blocking and in those, the reference to
+  the deleted enter is removed. If it is the last blocking enter, the waiting
+  pair is resolved.
+
+Timeline - empty lines: [COMPLETED]
+  there shall not be 2 consecutive empty lines, or an empty line adjacent to
+  ellipse
+  keep an existing empty line if:
+  - the last printed element is note or description and the current element is
+    an immediatelly following note or description (exception: two descriptions)
+  - inside matched block or date
+  Since we do not print empty lines when printing structure, it is sufficient
+  to have single boolean flag and use it only if printing note or description?
+  This is not entirely true because of dates. This is what should happen:
+  - empty lines should be printed lazily, i.e. only after it is known what 
+    comes next
+  - When matched date:
+    - copy all empty lines that do not follow ater an empty line
+    - (this keeps an empty line before the following date, if any)
+  - When matched block or nothing:
+    - we have to use two flags 'before_date' and 'after_date' to save the
+      information that an empty line was found after a not-yet-printed date.
+    - when a date is met, a flag has to be set (or we can use some logic based
+      on the value of state.date - NO, THAT WOULDN'T WORK, since we couldn't
+      determine if another element followed the date). It is reset after any
+      other nonempty element is met.
+    - If an empty line is met, the flag before_date or after_date should be set
+      based on the date flag.
+    - If a date is met while after_date is set, then the flag before_date is set
+      and after_date is reset.
+    - When printing a matched element, check the before_date flag and if set,
+      print an empty line (this logic should be implemented in print_atom). The
+      after_date flag should be possibly set only in case when printing dated.
+      In that case, an empty line should be printed after the date (this logic
+      should be implemented in print_dated).
+      EXCEPTION: when there are two dates divided only by empty line and the
+      second one is matched, we have to take into consideration both flags
+
+  date
+  L? print_spaced(date)                           Y
+  L? print_structured(date)
+     L- print_open_blocks(date)
+     |  L? print_ellipsed_dated(block)
+     |     L- print_ellipsed_date(block.date)
+     |     |  L? print_ellipsed(block.date)
+     |     |     L- print_ellipse
+     |     |     |  L? print_atom(...)            N
+     |     |     L- print_atom(block.date)        N
+     |     L- print_ellipsed(block)
+     |        L- print_ellipse
+     |        |  L? print_atom(...)               N
+     |        L- print_atom(block)                N
+     L- print_ellipsed(date)
+        L- print_ellipse
+        |  L? print_atom(...)                     N
+        L- print_atom(date)                     (if last printed is note)
+  enter
+  L? print_spaced(enter)                          Y
+  L? print_spaced_dated(enter)                    Y
+  |  L? print_atom(empty)
+  |  L- print_date(state.date)
+  |  |  L? print_atom(state.date)
+  |  L? print_atom(empty)
+  |  L- print_atom(enter)
+  L? print_structured_dated(enter)
+     L- print_open_blocks(enter)
+     |  L? print_ellipsed_dated(block)
+     |     L- print_ellipsed_date(block.date)
+     |     |  L? print_ellipsed(block.date)
+     |     |     L- print_ellipse
+     |     |     |  L? print_atom(...)            N
+     |     |     L- print_atom(block.date)        N
+     |     L- print_ellipsed(block)
+     |        L- print_ellipse
+     |        |  L? print_atom(...)               N
+     |        L- print_atom(block)                N
+     L- print_ellipsed_dated(enter)
+        L- print_ellipsed_date(state.date)
+        |  L? print_ellipsed(state.date)
+        |     L- print_ellipse
+        |     |  L? print_atom(...)               N
+        |     L- print_atom(state.date)           N
+        L- print_ellipsed(enter)
+           L- print_ellipse
+           |  L? print_atom(...)                  N
+           L- print_atom(enter)                 (if last printed is note)
+  leave
+  L? print_spaced(leave)                          Y
+  L? print_spaced_dated(leave)                    Y
+  |  L? print_atom(empty)
+  |  L- print_date(state.date)
+  |  |  L? print_atom(state.date)
+  |  L? print_atom(empty)
+  |  L- print_atom(leave)
+  L? print_ellipsed_dated(leave)
+     L- print_ellipsed_date(state.date)
+     |  L? print_ellipsed(state.date)
+     |     L- print_ellipse
+     |     |  L? print_atom(...)                  N
+     |     L- print_atom(state.date)              N
+     L- print_ellipsed(leave)
+        L- print_ellipse
+        |  L? print_atom(...)                     N
+        L- print_atom(leave)                      N
+  description
+  L? print_spaced(description)                    Y
+  L? print_spaced_dated(description)              Y
+  |  L? print_atom(empty)
+  |  L- print_date(state.date)
+  |  |  L? print_atom(state.date)
+  |  L? print_atom(empty)
+  |  L- print_atom(description)
+  L? print_structured_dated(description)
+     L- print_open_blocks(description)
+     |  L? print_ellipsed_dated(block)
+     |     L- print_ellipsed_date(block.date)
+     |     |  L? print_ellipsed(block.date)
+     |     |     L- print_ellipse
+     |     |     |  L? print_atom(...)            N
+     |     |     L- print_atom(block.date)        N
+     |     L- print_ellipsed(block)
+     |        L- print_ellipse
+     |        |  L? print_atom(...)               N
+     |        L- print_atom(block)                N
+     L- print_ellipsed_dated(description)
+        L- print_ellipsed_date(state.date)
+        |  L? print_ellipsed(state.date)
+        |     L- print_ellipse
+        |     |  L? print_atom(...)               N
+        |     L- print_atom(state.date)           N
+        L- print_ellipsed(description)
+           L- print_ellipse
+           |  L? print_atom(...)                  N
+           L- print_atom(description)             Y (if last printed is note)
+  note - matched date
+  L- print_spaced(first line)                     Y
+  L- print_atom(next lines)                       N
+  note - matched block
+  L- print_spaced_dated(first line)               Y
+  |  L? print_atom(empty)
+  |  L- print_date(state.date)
+  |  |  L? print_atom(state.date)
+  |  L? print_atom(empty)
+  L  L- print_atom(first line)
+  L- print_atom(next lines)                       N
+  note - matched buffer
+  L- print_buffer
+     L- print_open_blocks
+     |  L? print_ellipsed_dated(block)
+     |     L- print_ellipsed_date(block.date)
+     |     |  L? print_ellipsed(block.date)
+     |     |     L- print_ellipse
+     |     |     |  L? print_atom(...)            N
+     |     |     L- print_atom(block.date)        N
+     |     L- print_ellipsed(block)
+     |        L- print_ellipse
+     |        |  L? print_atom(...)               N
+     |        L- print_atom(block)                N
+     L- print_ellipsed_date(state.date)
+     |  L? print_ellipsed(state.date)
+     |     L- print_ellipse
+     |     |  L? print_atom(...)                  N
+     |     L- print_atom(state.date)              N
+     L- print_ellipse
+     |  L? print_atom(...)                        N
+     print(buffer)             Y (if last printed is leave, description or note)
+                                 (leave here could create problems... How would
+                                  it interact with the ellipsed date?)
+
+Timeline - object-oriented refactoring: [COMPLETED]
+  The printing works on the elements as objects, each element has an associated
+  date and a potential empty line in front of it. There are some conditions,
+  described in previous sections, that determine whether a date or an empty line
+  should be printed before the element. In practice, the printing methods are
+  divided into 5 categories considering the date and space:
+    dated     - check if the date_printed is up to date and if not, print the
+                element's date
+    !(dated)  - skip the check (used either because we know semantically that
+                the date has been printed, or as a low-level method called by a
+                dated one)
+    spaced    - print the element's space with almost no questions asked, it
+                only avoids printing two empty lines or an empty line after an
+                ellipse (used inside a matched block or date)
+    !(spaced) - print the element's space only if not doing so would cause
+                unclear search result, in particular between:
+                  note and note
+                  note and enter
+                  note and description
+                  leave and note
+                  description and note
+  Lastly, there is print_atom as super low-level that makes no checks. It is
+  called only by other printing methods to physically print stuff, it is never
+  called directly.
+
+Timeline - indenting: [COMPLETED]
+  Elements to be dynamically indented: Ellipse, Date
+  Indent of ellipse will be max(first and last element it represents), it is
+  therefore independent of surrounding printed elements
+  Indent of date will be max(indents of surrounding elements, ignoring empty
+  lines) if printed as a dependency for another element, or the original indent
+  if printed explicitly
+
