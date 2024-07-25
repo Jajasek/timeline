@@ -4,5 +4,5 @@ install:
 	mkdir -p ${DESTDIR}/usr/local/bin
 	ln -s ../lib/timeline/timeline ${DESTDIR}/usr/local/bin/timeline
 	mkdir -p ${DESTDIR}/etc
-	install src/timeline.conf ${DESTDIR}/etc/
+	install src/timeline.config ${DESTDIR}/etc/
 
