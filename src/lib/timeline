@@ -14,7 +14,7 @@ def main() -> None:
                                               fallback='timeline.tln')
     )
     args = parser.parse_args()
-    subprocess.run(f'nvim -u $TIMELINE_INSTALL_DIR/lib/timeline/nvim.config {args.file}', shell=True)
+    subprocess.run(f'nvim -u TIMELINE_INSTALL_DIR/lib/timeline/nvim.config {args.file}', shell=True)
 
 
 if __name__ == '__main__':
