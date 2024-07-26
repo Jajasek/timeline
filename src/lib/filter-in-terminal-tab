@@ -60,5 +60,5 @@ do
 done
 
 # So we have the file in $file and the search phrase in "$*".
-kitten @ launch --type=tab --title="$*" --cwd=current --hold .code/filter.py --parent-id $KITTY_WINDOW_ID $file "$*"
+kitten @ launch --type=tab --title="$*" --cwd=current --hold TIMELINE_INSTALL_DIR/lib/filter.py --parent-id $KITTY_WINDOW_ID $file "$*"
 

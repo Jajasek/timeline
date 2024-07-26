@@ -1,4 +1,4 @@
-#!.code/venv/bin/python
+#!/usr/bin/env python
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Iterable
@@ -397,3 +397,4 @@ class Traverser:
 
     def handle_note(self, note: Note) -> None:
         pass
+

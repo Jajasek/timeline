@@ -1,4 +1,4 @@
-#!.code/venv/bin/python
+#!/usr/bin/env python
 import argparse
 import os
 import locale
@@ -354,7 +354,7 @@ def main():
         }, allow_no_value=False, empty_lines_in_values=False)
     # do not change the case of keys
     config.optionxform = lambda option: option
-    config.read('.code/timeline.config')
+    config.read(['/etc/timeline.conf', '~/.config/timeline.conf'])
     # we care only about this one header
     config = config['timeline' if 'timeline' in config
                     else config.default_section]
@@ -411,7 +411,9 @@ def main():
         print(filter_.buffer_out.getvalue(), end='', file=file_out)
         print(filter_.buffer_sync.getvalue(), end='', file=file_sync)
     if not args.debug:
-        os.system(f"nvim -R -u .code/nvim.config '.filter/{find}.tln'")
+        # TIMELINE_INSTALL_DIR is a token that will be substituted by sed during
+        # install time
+        os.system(f"nvim -R -u TIMELINE_INSTALL_DIR/lib/nvim.config '.filter/{find}.tln'")
 
 
 if __name__ == '__main__':
