@@ -413,7 +413,7 @@ def main():
     if not args.debug:
         # TIMELINE_INSTALL_DIR is a token that will be substituted by sed during
         # install time
-        os.system(f"nvim -R -u TIMELINE_INSTALL_DIR/lib/nvim.config '.filter/{find}.tln'")
+        os.system(f"nvim -R -u TIMELINE_INSTALL_DIR/lib/timeline/nvim.config '.filter/{find}.tln'")
 
 
 if __name__ == '__main__':
