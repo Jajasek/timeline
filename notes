@@ -465,7 +465,9 @@ Timeline - indenting: [COMPLETED]
 Timeline - install process:
   Moved the project to a dedicated git repository ~/projects/timeline. On top-level there are files needed to build the package using Arch build system, in src/ there are the source files themselves.
 
-  The repository is pushed on github. The PKGBUILD.example shouldn't be used directly, but rather copied to ~/pkgbuild/timeline/PKGBUILD, where it should be run by makepkg. It downloads the repository from github and packages the files - the hard work is done by make, which copies the source files to their respective locations in $pkgdir (this is somewhat unellegantly configured in Makefile). During package install by pacman, the file locations reflect the locations in $pkgdir.
+  The repository is pushed on github. The PKGBUILD.production shouldn't be used directly, but rather copied to ~/pkgbuild/timeline/PKGBUILD, where it should be run by makepkg. It downloads the repository from github and packages the files - the hard work is done by make, which copies the source files to their respective locations in $pkgdir (this is configured in Makefile). During package install by pacman, the file locations reflect the locations in $pkgdir.
 
-  There has been changes in file locations in order to follow linux standards. Default config file is in /etc/timeline.conf, all scripts, nvim config and other files are in /usr/local/lib/timeline/, the main script is symlinked to /usr/local/bin/timeline.
+  There have been changes in file locations in order to follow linux standards. Default config file is in /etc/timeline.conf, all scripts, nvim config and other files are in /usr/lib/timeline/, the main script is symlinked to /usr/bin/timeline.
+
+  There is also PKGBUILD in projects/timeline, which is a workaround that enables the source to be tested without the need to commit and push the changes (because I make stupid errors and to fix them, I make several tiny commits). It copies the package to projects/timeline/src and installs it from there.
 
