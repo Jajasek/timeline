@@ -132,7 +132,7 @@ Timeline - Structure ideas: [COMPLETED]
   use some special symbols for syntax
   special symbol for comments, for example '--'
 
-Timeline - directory structure:
+Timeline - directory structure: [OUTDATED]
   ~/bin/timeline              (uses ./.code/timeline.config to open timeline
                                file in nvim with given config
              Maybe delegate sub-commands to filter.py?)

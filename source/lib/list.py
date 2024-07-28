@@ -1,4 +1,4 @@
-#!.code/venv/bin/python
+#!/usr/bin/env python
 import argparse
 from functools import partial
 
