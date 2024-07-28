@@ -2,6 +2,8 @@
 import argparse
 import os
 import locale
+import datetime
+import tempfile
 from bisect import bisect, insort
 from dataclasses import dataclass, field
 from io import StringIO
@@ -344,20 +346,73 @@ def get_main_file(file: str, ignore_parent: bool) -> Path:
         return path_tln
 
 
+def get_cache_dir() -> Path:
+    cache = Path(os.environ.get('XDG_CACHE_HOME', '~/.cache')).expanduser()
+    our_cache = cache / 'timeline'
+    our_cache.mkdir(exist_ok=True, parents=True)
+    return our_cache
+
+
+def get_tmp_file() -> Path:
+    now = datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f-')
+    return get_cache_dir() / now
+
+
+def prune_cache(max_count, max_size, keep) -> None:
+    # remove all directories in cache and all files above count and size, oldest
+    # first. Corresponding .tln and .sync files are counted as one file. keep is
+    # the basename of just-created files, which will be kept regardless of their
+    # size.
+    cache = get_cache_dir()
+    # basename: (size, timestamp, [path, ...])
+    info: dict[str, tuple[int, int, list]] = dict()
+    for child in cache.iterdir():
+        if not child.is_file():
+            child.unlink()
+        elif str(child).endswith('.sync') or str(child).endswith('.tln'):
+            basename = str(child).rsplit('.', 1)[0]
+            size, timestamp, files = info.get(basename, (0, 2**100, []))  # 2**100 is practically infinite
+            info[basename] = (
+                size + child.stat().st_size,
+                min(timestamp, child.stat().st_mtime_ns),
+                files + [child]
+            )
+        else:
+            child.unlink()
+    if keep in info:
+        count = 1
+        size_sum = info.pop(keep)[0]
+    else:
+        count = size_sum = 0
+    # iterate from newest and when we exceed size or count, delete everything
+    for basename, (size, _, paths) in sorted(
+            info.items(), key=lambda x: x[1][1], reverse=True
+    ):
+        size_sum += size
+        count += 1
+        if size_sum > max_size or count > max_count:
+            for path in paths:
+                path.unlink()
+
+
 def main():
     # C locale is the python's default, so setting it changes nothing
-    config = ConfigParser(
-        {
-            'Locale': 'C',
-            'MainFile': 'timeline.tln',
-            'FuzzySearchTolerance': 75
-        }, allow_no_value=False, empty_lines_in_values=False)
+    config = ConfigParser(allow_no_value=False, empty_lines_in_values=False)
     # do not change the case of keys
     config.optionxform = lambda option: option
-    config.read(['/etc/timeline.conf', '~/.config/timeline.conf'])
+    config.read_dict({'timeline': {
+            'Locale': 'C',
+            'MainFile': 'timeline.tln',
+            'FuzzySearchTolerance': 75,
+            'FilterHistoryCount': 10,
+            'FilterHistorySize': 100000000,
+        }})
+    config.read([
+        '/etc/timeline.conf',
+        Path('~/.config/timeline.conf').expanduser()
+    ])
     # we care only about this one header
-    config = config['timeline' if 'timeline' in config
-                    else config.default_section]
+    config = config['timeline']
     # we can set the locale program-wide, because the only locale-dependent
     # thing we are doing are the days of the week
     locale.setlocale(locale.LC_TIME, config['Locale'])
@@ -386,10 +441,11 @@ def main():
     find = ' '.join(map(str.strip, find.split('\n')))
     # get the path of the file to filter
     main_file = get_main_file(args.file, args.ignore_parent)
+    tmp_file_basename = f'{get_tmp_file()}{find}'
 
     with (open(main_file, 'r') as file_in,
-          open(f'.filter/{find}.tln', 'w') as file_out,
-          open(f'.filter/{find}.sync', 'w') as file_sync):
+          open(f'{tmp_file_basename}.tln', 'w') as file_out,
+          open(f'{tmp_file_basename}.sync', 'w') as file_sync):
         filter_ = Filter(find, config.getint('FuzzySearchTolerance'))
         filter_.filter(file_in)
         # insert a heading to the top
@@ -410,10 +466,17 @@ def main():
         # print the filtered timeline
         print(filter_.buffer_out.getvalue(), end='', file=file_out)
         print(filter_.buffer_sync.getvalue(), end='', file=file_sync)
+
+    prune_cache(
+        config.getint('FilterHistoryCount'),
+        config.getint('FilterHistorySize'),
+        tmp_file_basename
+    )
+
     if not args.debug:
         # TIMELINE_INSTALL_DIR is a token that will be substituted by sed during
         # install time
-        os.system(f"nvim -R -u TIMELINE_INSTALL_DIR/lib/timeline/nvim.config '.filter/{find}.tln'")
+        os.system(f"nvim -R -u TIMELINE_INSTALL_DIR/lib/timeline/nvim.config '{tmp_file_basename}.tln'")
 
 
 if __name__ == '__main__':
