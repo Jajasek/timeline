@@ -1,6 +1,6 @@
 # Maintainer: Jajasek <jachym.mierva@gmail.com>
 pkgname=timeline
-pkgver=r22.5c0c79b.dev
+pkgver=r23.703e282.dev
 pkgrel=1
 epoch=
 pkgdesc="Scripts for parsing and filtering structured notes, integrated with neovim and kitty. Development version."
