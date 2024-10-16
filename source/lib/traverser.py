@@ -279,6 +279,9 @@ class Traverser:
             -> Iterator[Element]:
         note: Note | None = None
         for linenumber, line in enumerate(file_in, 1):
+            # ignore the shebang line
+            if linenumber == 1 and line.startswith('#!'):
+                continue
             # strip the trailing newline
             line = line.rstrip()
             # throw off comment

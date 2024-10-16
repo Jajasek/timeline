@@ -113,12 +113,12 @@ class Filter(Traverser):
         elif distance or self.fuzzysearch(enter.line):
             self.print_structured_dated(enter)
             enter.printed = True
+            self.matched_enters.add(enter.linenumber)
         if distance:
             for description in enter.descriptions:
                 self.descriptions.append(DescriptionEntry(
                     distance, enter.name, enter.linenumber, description
                 ))
-            self.matched_enters.add(enter.linenumber)
 
     def handle_leave_matched(self, leave: Leave, enter: Enter) -> None:
         # This method is called during the loop in Traverser.block_leave()
