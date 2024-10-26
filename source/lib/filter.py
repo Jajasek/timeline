@@ -3,17 +3,17 @@ import argparse
 import os
 import locale
 import datetime
-import tempfile
 from bisect import bisect, insort
 from dataclasses import dataclass, field
 from io import StringIO
+from math import ceil
 from typing import Iterable
 from thefuzz import fuzz
 from configparser import ConfigParser
 from pathlib import Path
 
 from traverser import Traverser, Element, Date, Enter, Leave, Spaced, Dated, \
-    Note, Description, Empty, Ellipse
+    Note, Description, Empty, Ellipse, Syntax
 
 
 @dataclass(slots=True, order=True)
@@ -57,7 +57,7 @@ class Filter(Traverser):
         if self.omitted_linenumbers:
             self.print_atom(Ellipse(
                 self.omitted_linenumbers[0][0],
-                ' ' * self.omitted_linenumbers[0][1] + '...'
+                ' ' * self.omitted_linenumbers[0][1] + Syntax.ELLIPSE
             ))
         # sort the descriptions by distance, name and linenumber
         self.descriptions.sort()
@@ -448,9 +448,9 @@ def main():
           open(f'{tmp_file_basename}.sync', 'w') as file_sync):
         filter_ = Filter(find, config.getint('FuzzySearchTolerance'))
         filter_.filter(file_in)
-        # insert a heading to the top
-        print(f'-- {find}', file=file_out)
-        print('-' * (len(find) + 6), file=file_out)
+        # insert a heading to the top   TODO: comment syntax changed
+        print(f'{Syntax.COMMENT} {find}', file=file_out)
+        print(Syntax.COMMENT + Syntax.COMMENT[-1] * (len(find) + 2 + len(Syntax.COMMENT)), file=file_out)
         # if supplied, print an id of the parent kitty window to the syncfile
         print(args.parent_id if args.parent_id is not None else '',
               file=file_sync)
@@ -458,7 +458,7 @@ def main():
         print(main_file, file=file_sync)
         # print the description lines under the heading
         for entry in filter_.descriptions:
-            print(f'-- {entry.name} = {entry.description}', file=file_out)
+            print(f'{Syntax.COMMENT} {entry.name} = {entry.description}', file=file_out)
             print(entry.linenumber, file=file_sync)
         # divide by an empty line, keeping the sync file synchronized
         print(file=file_out)

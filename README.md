@@ -1,39 +1,65 @@
 # About
 
 timeline is an editor and analyzer for structured chronological notes, refered
-to as `timelines`. 
+to as `timelines`. It consists of:
+- the format specification, which seeks to be very permissive and general,
+- a launcher `timeline`,
+- a NeoVim config file with several keybindings,
+- several python scripts for traversing and filtering the timelines.
+
+# Workflow
+
+The format has been developed to allow fast, real-time notetaking (for example
+during DnD session). The structure elements are meant to be used as expressive
+tools, which may be used by the user in any way he wants. The user assigns the
+semantic meaning to the structure elements, based on the context and purpose of
+the notes. In this filosophy, the intended use of the elements is not enforced,
+as it a mere suggestion. It is not the traverser's job to correct the user - its
+job is to try to understand the user as much as possible.
+
+The main feature of this software is the ability to search in the existing
+timeline for fuzzy matches and display the relevant results in a concise, yet
+comprehensive way. If the user chooses an efficient structuring, it allows the
+software to cherrypick relevant information about the searched topic and display
+it in readable and semantically correct way.
+
+For example, suppose that during a DnD session a familiar name shows up in a
+conversation. A quick hit of <C-s>q and typing a part of the name reveals a
+complete story about where and when did the player hear that name, in what
+context and what exactly does he know.
+
+Several other helper features are available, for example automatic insertion of
+dates. More are coming.
 
 # Syntax
 
-A a general rule, a leading or trailing whitespace, as well as excessive
+As a general rule, a leading or trailing whitespace, as well as excessive
 whitespace between parts of a command, is ignored. Whenever a line contains
-`--`, any string after that is also ignored.
+`#`, any string after that is also ignored.
 
 The basic unit of the file is a `note`, which is defined to be a maximal
 sequence of consecutive lines which are neither of the following special
 commands:
 
 - `empty`: an empty line is a delimiter between consecutive notes, or just a
-  visual element if it is not between two consecutive notes.
-- `date`: a line beginning with `#` has to contain at most 3 strings delimited
-  by `.`. Each string must be an integer, empty or `?` (whitespace is ignored,
-  as usual). Negative values, empty string and `?` are aliases of `0`. The
+  visual element if it is not between two consecutive notes. Two or more 
+  consecutive empty lines are parsed as a single empty line.
+- `date`: a line beginning with `@` has to contain at most 3 strings delimited
+  by `.`. Each string must be an integer, empty, `oo`, `∞` or `?` (whitespace is ignored,
+  as usual). Negative values, empty string and `?` are aliases of `0`. `oo` is the suggestive ASCII representation of `∞`, and it behaves like so during ordering. The
   integers represent day, month and year, respectively. If any of the numbers
   is `0`, it is implied that this value is the same as the corresponding value
-  in the previous date, inductively. This may leave the value undefined.The
+  in the previous date, inductively. This may leave the value undefined. The
   dates are required to appear in consecutive order (i.e. lexicographical, but
   ignoring undefined values).
 - `block enter`: A line beginning with `>` enters a block, more about them in
   the next subsection.
 - `block leave`: A line beginning with `<` leaves a block.
-- `description`: A line beginning with `=` is split at `=` into several
-  strings, let us denote them `{0}`, `{1}`, `{n}` for `n >= 0`. The string
-  `{0}` must be nonempty, then the description is equivalent with this empty
-  block:
-
-`> {0} = {1} = {...} = {n}
-<`
-
+- `description`: A line of the form `={foo}` is equivalent with the empty block
+  ```
+  > {foo}
+  <
+  ```
 - `ellipse`: a literal `...` stands for an omitted information. Notice that a
   presence or absence of an ellipse carries an information.
 
@@ -43,20 +69,19 @@ Blocks can be used to group several consecutive notes together based on some
 common metadata. Typical examples are notes from a single dialog, location or
 process. The blocks create a structure which is respected during filtering.
 
-A block-entering line has the following syntax (`{foo}` are placeholders,
-`[foo]` denotes optional parts):
+A block-entering line has the following syntax (`{foo}` are placeholders):
 
-`>[{type}] {name}[={description1}[={description2}{...}]]`
+`>{type} {name}={description1}={description2}{...}`
 
-Here `{type}` is meant to indicate a type of the block (i.e. whether it
-corresponds to a conversation, location etc.) For historical reasons, `{type}`
-has to be 1 character. This restriction is likely to be removed. 
+where all parts (after the leading character `>`) are optional.
 
-`{name}` has to be nonempty, and is meant to indicate the precise reason why
-the notes inside are grouped (i.e. name of the interviewed person, name of the
-location etc.)
+`{type}` is meant to indicate a type of the block (i.e. whether it
+corresponds to a conversation, location etc.). Clearly, it cannot contain a
+space. `{name}` is meant to indicate the precise reason why the notes inside are
+grouped (i.e. name of the interviewed person, name of the
+location etc.) and it can be used to identify the block.
 
-The optional `{description?}` entries are meant to hold additional information
+The `{description·}` entries are meant to hold additional information
 about `{name}` (e.g. the appearance or occupation of the person).
 
 The blocks can be partially interleaved with no firm structure, as opposed to
@@ -64,7 +89,7 @@ the rigid tree-like structure of the code blocks of most programming languages.
 Therefore, a block-leaving command doesn't have to leave the last open block.
 Its syntax is similar to the syntax of block-enter:
 
-`>[{type}][ {name}]`
+`>{type} {name}`
 
 Such command can match a block-enter with the same type (if provided) and name
 (if provided). Of those, the most recent one is matched. If there are none, a
@@ -101,11 +126,12 @@ prompt, which we shall denote `{find}`. The filter script reads the timeline
 and searches for `{find}` in each:
 - `note`, which is first transformed into a one-line string
 - `date`, which is first transformed into a canonical form
-  `# DD.MM.YYYY --WEEKDAY`
+  `@ DD.MM.YYYY # WEEKDAY`
 - `block-enter`
 - `description`
 
-The search is performed using `thefuzz.fuzz.partial_ratio()` and its tolerance can be customized (see Configuration).
+The search is performed using `thefuzz.fuzz.partial_ratio()` and its tolerance
+can be customized (see Configuration).
 
 This procedure selects some elements, which will be included in the output.
 However, each selected element is bound to some other elements collectively
@@ -128,6 +154,8 @@ Additionally, a header is inserted at the beginning of the output. Whenever the
 
 The output of the filtering procedure is saved to a temporary file, which is
 then opened in nvim in new terminal tab.
+
+The filter operation is idempotent.
 
 # Configuration
 

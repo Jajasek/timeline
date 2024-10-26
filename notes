@@ -130,7 +130,8 @@ Timeline - Structure ideas: [COMPLETED]
   conversations)
   Maybe it would be good idea to make the commands as short as possible, maybe
   use some special symbols for syntax
-  special symbol for comments, for example '--'
+  special symbol for comments, for example '--' (THIS WAS BAD IDEA, CLASSIC '#'
+  IS BETTER)
 
 Timeline - directory structure: [OUTDATED]
   ~/bin/timeline              (uses ./.code/timeline.config to open timeline
