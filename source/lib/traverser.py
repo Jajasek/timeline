@@ -1,6 +1,8 @@
 #!/usr/bin/env python
+import sys
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from math import inf
 from typing import Iterable, TypeAlias
 from itertools import repeat, chain
 import datetime
@@ -26,16 +28,16 @@ class ExtendedInt(float):
     """
     _convert_store = {
             '?': 0,
-            'oo': 'inf',
-            '∞': 'inf',
-            'inf': 'inf',
-            '-oo': '-inf',
-            '-∞': '-inf',
-            '-inf': '-inf',
+            'oo': inf,
+            '∞': inf,
+            'inf': inf,
+            '-oo': -inf,
+            '-∞': -inf,
+            '-inf': -inf,
         }
     _convert_print = {
-        float('inf'): '∞',
-        float('-inf'): '-∞',
+        inf: '∞',
+        -inf: '-∞',
         0: '?',
     }
 
@@ -65,7 +67,7 @@ class ExtendedInt(float):
         Test if the value is finite positive integer, because then it defines
         date in standard way.
         """
-        return 1 <= self < float('inf')
+        return 1 <= self < inf
 
 
 DateElement: TypeAlias = ExtendedInt | str | int
@@ -84,6 +86,7 @@ class Syntax:
     DESCRIPTION = '='
     DESCRIPTION_DELIMITER = '='
     ELLIPSE = '...'
+    LIST_TYPE = '-'
     ITEM = '-'
 
 
@@ -314,31 +317,23 @@ class Note(Dated):
         )))[:-1]
 
 
+class Item(Note):
+    pass
+
+
 class Traverser:
     def __init__(self) -> None:
-        # When a note starts, a note action is assigned to speed up the
-        # processing of the note. It is evaluated for each subsequent parsed
-        # line and terminates itself when the note ends.
-        # self.note_action: Callable[[str, 'State', int, str, tuple], None]\
-        #                   | None = None
-        # here we save the lines of a note until it is complete, only then we
-        # search - including linebreaks and indentation for output
-        # self.buffer_note_lines: str = ''
-        # - as a single line for search
-        # self.buffer_note_search: str = ''
-        # the linenumber at which the current note starts
-        # self.note_start: int = 0
-        # keys are linenumbers - in the future, when more enter/leave commands
+        # Keys are linenumbers - in the future, when more enter/leave commands
         # on single line are supported, the keys may become tuples (linenumber,
-        # index) when a match is found inside the block, the block has to be
+        # index).
+        # When a match is found inside the block, the block has to be
         # printed - then the 'printed' flag is set, preventing it to be printed
         # again and indicating that the leaving line has to be printed, too.
         self.blocks: dict[int, Block] = {}
         # last encountered date
         self.date: Date = Date()
-        # The following three flags are reset each time an element other than
-        # the empty line and date is encountered. the flag that is set to the
-        # linenumber when encountering empty line
+        # The following flag is reset each time an element other than
+        # the empty line and date is encountered.
         self.empty_line: Empty | None = None
         self.last_parsed: Spaced | None = None
 
@@ -380,7 +375,7 @@ class Traverser:
                 # Traverse only lines above cursor, not including the line
                 # under cursor. This makes closing blocks easier.
                 break
-            # strip the trailing newline
+            # strip the trailing newline and whitespace
             line = line.rstrip()
             # throw off comment
             if (comment_index := line.find(Syntax.COMMENT)) != -1:
@@ -396,12 +391,13 @@ class Traverser:
                     return True
                 return False
 
-            def yielder(to_yield: Element) -> Iterator[Element]:
+            def yielder(to_yield: Element | None = None) -> Iterator[Element]:
                 nonlocal note
                 if note:
                     yield note
                     note = None
-                yield to_yield
+                if to_yield is not None:
+                    yield to_yield
 
             if not processed_line:
                 yield from yielder(Empty(linenumber, line))
@@ -446,6 +442,9 @@ class Traverser:
                     Description(linenumber, self.get_empty_line(), self.date,
                                 line, next(splitted, ''), splitted)
                 )
+            elif processed_line.startswith(Syntax.ITEM) and self.inside_list():
+                yield from yielder()
+                note = Item(linenumber, self.get_empty_line(), self.date, line)
             elif processed_line == Syntax.ELLIPSE:
                 self.empty_line = None
                 yield from yielder(Ellipse(linenumber, line))
@@ -453,6 +452,16 @@ class Traverser:
                 note.add_line(line)
             else:
                 note = Note(linenumber, self.get_empty_line(), self.date, line)
+
+    def inside_list(self) -> bool:
+        for block in reversed(self.blocks.values()):
+            if isinstance(block, Enter) and self.block_match(
+                    block,
+                    Leave(sys.maxsize, None, self.date, Syntax.LEAVE, '', '')
+            ):
+                return block.type.startswith(Syntax.LIST_TYPE)
+        return False
+
 
     def handle_date(self, date: Date) -> None:
         # update date

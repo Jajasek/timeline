@@ -45,13 +45,14 @@ commands:
   visual element if it is not between two consecutive notes. Two or more 
   consecutive empty lines are parsed as a single empty line.
 - `date`: a line beginning with `@` has to contain at most 3 strings delimited
-  by `.`. Each string must be an integer, empty, `oo`, `∞` or `?` (whitespace is ignored,
-  as usual). Negative values, empty string and `?` are aliases of `0`. `oo` is the suggestive ASCII representation of `∞`, and it behaves like so during ordering. The
-  integers represent day, month and year, respectively. If any of the numbers
-  is `0`, it is implied that this value is the same as the corresponding value
-  in the previous date, inductively. This may leave the value undefined. The
-  dates are required to appear in consecutive order (i.e. lexicographical, but
-  ignoring undefined values).
+  by `.`. Each string must be an integer, empty, `oo`, `∞` or `?` (whitespace is
+  ignored, as usual). Negative values, empty string and `?` are aliases of `0`.
+  `oo` is the suggestive ASCII representation of `∞`, and it behaves like so
+  during ordering. The integers represent day, month and year, respectively. If
+  any of the numbers is `0`, it is implied that this value is the same as the
+  corresponding value in the previous date, inductively. This may leave the
+  value undefined. The dates are required to appear in consecutive order (i.e.
+  lexicographical, but ignoring undefined values).
 - `block enter`: A line beginning with `>` enters a block, more about them in
   the next subsection.
 - `block leave`: A line beginning with `<` leaves a block.
@@ -60,6 +61,11 @@ commands:
   > {foo}
   <
   ```
+- `item`: immediatelly inside a block whose type starts with `-` (meaning that
+  the last nonmatched `block enter`'s type starts with `-`), the hyphens at the
+  beginning of lines can be used as note delimiters, in addition to the empty
+  lines. Those notes starting with `-` are refered to as `items` and the
+  enclosing block is a `list`.
 - `ellipse`: a literal `...` stands for an omitted information. Notice that a
   presence or absence of an ellipse carries an information.
 
