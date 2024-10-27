@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import re
 import sys
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -6,6 +7,8 @@ from math import inf
 from typing import Iterable, TypeAlias
 from itertools import repeat, chain
 import datetime
+
+from config import config
 
 
 def get_indent(line: str) -> int:
@@ -142,7 +145,8 @@ class Date(Spaced):
         if self.day_of_week is None:
             date = (self.year, self.month, self.day)
             if all(date):
-                self.day_of_week = f' {Syntax.COMMENT} {datetime.date(*date).strftime("%A")}'
+                self.day_of_week = (f' {Syntax.COMMENT}'
+                                    f' {datetime.date(*date).strftime("%A")}')
             else:
                 self.day_of_week = ''
         return self.day_of_week
@@ -168,7 +172,7 @@ class Date(Spaced):
     def __str__(self):
         return ''.join(map(str, (
             ' ' * self.indent,
-            Syntax.COMMENT,
+            Syntax.DATE,
             ' ',
             self.day,
             Syntax.DATE_DELIMITER,
@@ -268,8 +272,12 @@ class Enter(Block):
         self.descriptions = tuple(self.descriptions)
 
     def __repr__(self):
-        return f'{self.linenumber}|{Syntax.ENTER}{self.type} {self.name}' + ''.join(
-            (f' {Syntax.DESCRIPTION_DELIMITER} ' + d for d in self.descriptions)
+        return (
+            f'{self.linenumber}|{Syntax.ENTER}{self.type} {self.name}'
+            + ''.join(
+                (f' {Syntax.DESCRIPTION_DELIMITER} ' + d
+                 for d in self.descriptions)
+            )
         )
 
 
@@ -462,7 +470,6 @@ class Traverser:
                 return block.type.startswith(Syntax.LIST_TYPE)
         return False
 
-
     def handle_date(self, date: Date) -> None:
         # update date
         self.date = self.date.update(date)
@@ -490,8 +497,10 @@ class Traverser:
     def block_match(enter: Enter, leave: Leave) -> bool:
         if enter.waiting:
             return False
-        if leave.name and enter.name != leave.name:
-            # TODO: allow regex matching
+        if (leave.name and re.search(
+                leave.name, enter.name,
+                re.NOFLAG if config.CaseSensitiveLeave else re.IGNORECASE
+        ) is None):
             return False
         if leave.type and enter.type != leave.type:
             return False
@@ -508,4 +517,3 @@ class Traverser:
 
     def handle_note(self, note: Note) -> None:
         pass
-

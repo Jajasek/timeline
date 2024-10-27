@@ -6,7 +6,6 @@ import datetime
 from bisect import bisect, insort
 from dataclasses import dataclass, field
 from io import StringIO
-from math import ceil
 from typing import Iterable
 from thefuzz import fuzz
 from configparser import ConfigParser
@@ -14,6 +13,7 @@ from pathlib import Path
 
 from traverser import Traverser, Element, Date, Enter, Leave, Spaced, Dated, \
     Note, Description, Empty, Ellipse, Syntax
+from config import config
 
 
 @dataclass(slots=True, order=True)
@@ -25,7 +25,7 @@ class DescriptionEntry:
 
 
 class Filter(Traverser):
-    def __init__(self, find: str, tolerance: int) -> None:
+    def __init__(self, find: str) -> None:
         super(Filter, self).__init__()
         # instead of files, first write to output buffers - at the end, we will
         # need to prepend these buffers with the header
@@ -46,9 +46,7 @@ class Filter(Traverser):
         self.omitted_linenumbers: list[tuple[int, int]] = []
         self.last_printed_element: Element | None = None
         # the search term
-        self.find: str = find.lower()
-        # the tolerance, 0 meaning always match, 100 meaning perfect match
-        self.tolerance: int = tolerance
+        self.find: str = find if config.CaseSensitiveSearch else find.lower()
 
     def filter(self, file_in: Iterable[str]) -> None:
         self.traverse(file_in)
@@ -85,9 +83,11 @@ class Filter(Traverser):
             self.matched_date = False
 
     def fuzzysearch(self, string: str) -> int:
-        ratio = fuzz.partial_ratio(self.find, string.lower())
+        ratio = fuzz.partial_ratio(
+            self.find, string if config.CaseSensitiveSearch else string.lower()
+        )
         # the maximum ratio is 100
-        if ratio >= self.tolerance:
+        if ratio >= config.FuzzySearchTolerance:
             # when sorting in the end, lower values take priority
             return 101 - ratio
         return 0
@@ -358,7 +358,7 @@ def get_tmp_file() -> Path:
     return get_cache_dir() / now
 
 
-def prune_cache(max_count, max_size, keep) -> None:
+def prune_cache(keep) -> None:
     # remove all directories in cache and all files above count and size, oldest
     # first. Corresponding .tln and .sync files are counted as one file. keep is
     # the basename of just-created files, which will be kept regardless of their
@@ -390,37 +390,21 @@ def prune_cache(max_count, max_size, keep) -> None:
     ):
         size_sum += size
         count += 1
-        if size_sum > max_size or count > max_count:
+        if (size_sum > config.FilterHistorySize
+                or count > config.FilterHistoryCount):
             for path in paths:
                 path.unlink()
 
 
 def main():
-    # C locale is the python's default, so setting it changes nothing
-    config = ConfigParser(allow_no_value=False, empty_lines_in_values=False)
-    # do not change the case of keys
-    config.optionxform = lambda option: option
-    config.read_dict({'timeline': {
-            'Locale': 'C',
-            'MainFile': 'timeline.tln',
-            'FuzzySearchTolerance': 75,
-            'FilterHistoryCount': 10,
-            'FilterHistorySize': 100000000,
-        }})
-    config.read([
-        '/etc/timeline.conf',
-        Path('~/.config/timeline.conf').expanduser()
-    ])
-    # we care only about this one header
-    config = config['timeline']
     # we can set the locale program-wide, because the only locale-dependent
     # thing we are doing are the days of the week
-    locale.setlocale(locale.LC_TIME, config['Locale'])
+    locale.setlocale(locale.LC_TIME, config.Locale)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', action='store_true',
                         help='do not open filtered file in nvim')
-    parser.add_argument('--file', type=str, default=config['MainFile'],
+    parser.add_argument('--file', type=str, default=config.MainFile,
                         help='the .tln file the filter is called from. By '
                              'default, the file to be filtered will be '
                              'determined by the second line in the '
@@ -446,7 +430,7 @@ def main():
     with (open(main_file, 'r') as file_in,
           open(f'{tmp_file_basename}.tln', 'w') as file_out,
           open(f'{tmp_file_basename}.sync', 'w') as file_sync):
-        filter_ = Filter(find, config.getint('FuzzySearchTolerance'))
+        filter_ = Filter(find)
         filter_.filter(file_in)
         # insert a heading to the top   TODO: comment syntax changed
         print(f'{Syntax.COMMENT} {find}', file=file_out)
@@ -467,11 +451,7 @@ def main():
         print(filter_.buffer_out.getvalue(), end='', file=file_out)
         print(filter_.buffer_sync.getvalue(), end='', file=file_sync)
 
-    prune_cache(
-        config.getint('FilterHistoryCount'),
-        config.getint('FilterHistorySize'),
-        tmp_file_basename
-    )
+    prune_cache(tmp_file_basename)
 
     if not args.debug:
         # TIMELINE_INSTALL_DIR is a token that will be substituted by sed during

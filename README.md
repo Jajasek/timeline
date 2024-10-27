@@ -95,11 +95,14 @@ the rigid tree-like structure of the code blocks of most programming languages.
 Therefore, a block-leaving command doesn't have to leave the last open block.
 Its syntax is similar to the syntax of block-enter:
 
-`>{type} {name}`
+`<{type} {name}`
 
-Such command can match a block-enter with the same type (if provided) and name
-(if provided). Of those, the most recent one is matched. If there are none, a
-syntax error is raised.
+Such command matches the most recent not-yet-matched enter such that:
+- it has exactly the same type (if provided); and
+- its name contains a substring which is matched by `{name}` when considered as
+  a regular expression. This matching is done case-insensitively by default.
+
+If there is no such block, a syntax error is raised.
 
 # Operations
 
@@ -137,7 +140,8 @@ and searches for `{find}` in each:
 - `description`
 
 The search is performed using `thefuzz.fuzz.partial_ratio()` and its tolerance
-can be customized (see Configuration).
+can be customized (see Configuration). By default, the search is
+case-insensitive.
 
 This procedure selects some elements, which will be included in the output.
 However, each selected element is bound to some other elements collectively
@@ -172,12 +176,14 @@ configuration uses Python's `ini` format. All options should be under
 `[timeline]` header. The following options are available (listed with their
 default values):
 - `MainFile = timeline.tln`: the file to open when `timeline` is invoked
-  without arguments.
+  without arguments. When a relative path, it is relative to the working
+  directory.
 - `FuzzySearchTolerance = 75`: the tolerance of the fuzzy matching during the
   filtering. `0` causes everything to match, `100` requires perfectly matching
   substring.
 - `Locale = C`: the locale to use when assigning weekdays to dates. See the
-  documentation of `locale.setlocale()` for details.
+  documentation of `locale.setlocale()` for details. In particular, empty string
+  means the user's default.
 - `FilterHistoryCount = 10`: the maximum number of filter results to store in
   the result cache. Values below `1` act like `1`.
 - `FilterHistorySize = 100000000`: the maximum number of bytes worth of files
