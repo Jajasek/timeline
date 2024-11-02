@@ -30,6 +30,7 @@ class ExtendedInt(float):
     to be undefined.
     """
     _convert_store = {
+            '': 0,
             '?': 0,
             'oo': inf,
             '∞': inf,

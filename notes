@@ -178,8 +178,9 @@ Timeline - more ideas:
   - print the resulting structure, which should be straightforward because all
     elements that have to be printed are already in order in the filter result)
 
-  - Inside block of special type '-', parse lines starting with '-' as
-    standalone notes. Use indentation to structure them.
+  v Inside block of special type '-', parse lines starting with '-' as
+    standalone notes. 
+    - Use indentation to structure them.
   v parse ellipse as special object to use for intersections of searches
   - highlight the matches in vim
   - allow more > or < commands on a single line
