@@ -57,7 +57,8 @@ class ExtendedInt(float):
         """
         if isinstance(value, str):
             value = value.strip()
-        value = cls._convert_store.get(value, int(value))
+        value = (cls._convert_store[value] if value in cls._convert_store 
+                 else int(value))
         return float.__new__(ExtendedInt, value)
 
     def __repr__(self):
