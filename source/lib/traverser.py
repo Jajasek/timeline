@@ -138,9 +138,12 @@ class Date(Spaced):
     day_of_week: str | None = field(default=None, init=False)
 
     def __post_init__(self):
-        self.day = ExtendedInt(self.day)
-        self.month = ExtendedInt(self.month)
-        self.year = ExtendedInt(self.year)
+        try:
+            self.day = ExtendedInt(self.day)
+            self.month = ExtendedInt(self.month)
+            self.year = ExtendedInt(self.year)
+        except ValueError as e:
+            raise LineParsingError(self.linenumber, e)
 
     def get_day_of_week(self) -> str:
         if self.day_of_week is None:
@@ -362,8 +365,9 @@ class Traverser:
                 # check chronology
                 if not element > self.date:
                     raise StructureError(
-                        element.linenumber, f'new date {element} is not after'
-                                            f' {self.date}')
+                        element.linenumber,
+                        f'new date {element} is not after {self.date}'
+                    )
                 self.handle_date(element)
             elif isinstance(element, Enter):
                 self.handle_enter(element)
@@ -374,6 +378,9 @@ class Traverser:
                 self.handle_description(element)
             elif isinstance(element, Note):
                 self.handle_note(element)
+            else:
+                raise LineParsingError(element.linenumber,
+                                       f'element {element} not recognized')
             self.last_parsed = element
 
     def parse_lines(self, file_in: Iterable[str], max_lines: int)\
