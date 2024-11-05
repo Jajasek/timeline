@@ -61,6 +61,10 @@ class ExtendedInt(float):
                  else int(value))
         return float.__new__(ExtendedInt, value)
 
+    def __index__(self):
+        # needed for passing ExtendedInt instances into datetime.date()
+        return int(self)
+
     def __repr__(self):
         return self._convert_print.get(self, None) or repr(int(self))
 
