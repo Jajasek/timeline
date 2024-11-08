@@ -194,6 +194,8 @@ Timeline - more ideas:
     the current directory, if it exists
   - in link.py, add a check that the tab is still running nvim with the same
     file.
+  - backslash at the end of line would connect lines, useful for long
+    descriptions or block names
 
 Timeline - ellipses: [COMPLETED]
   which structure elements can be left out?
@@ -467,7 +469,7 @@ Timeline - indenting: [COMPLETED]
   lines) if printed as a dependency for another element, or the original indent
   if printed explicitly
 
-Timeline - install process:
+Timeline - install process: [COMPLETED]
   Moved the project to a dedicated git repository ~/projects/timeline. On
   top-level there are files needed to build the package using Arch build
   system, in source/ there are the source files themselves.
@@ -490,4 +492,103 @@ Timeline - install process:
   changes (because I make stupid errors and to fix them, I make several tiny
   commits). It copies the package to projects/timeline/src and installs it from
   there.
+
+Timeline - lists:
+  My goal is to enable the following syntax:
+
+  >- To do
+    - Something
+    - Homework
+      - ODE
+      - PDE
+    - Something else
+      >x explanation
+        blablabla for several paragraphs
+        >- reasons
+          - I don't like PDE
+          - I like trains
+        <
+      <x
+      some note at the end
+  <-
+
+  How to parse, represent and filter this thing?
+  Let's start with filtering. Here are some examples of intended behaviour:
+
+  ## Someting
+  ##############
+  >- To do
+    - Something
+    ...  # note the indent here, it apparently doesn't follow the general rule
+    - Something else
+      >x explanation
+        blablabla for several paragraphs
+        >- reasons
+          - I don't like PDE
+          - I like trains
+        <
+      <x
+      some note at the end
+  <-
+
+  ## PDE
+  #########
+  >- To do
+    ...
+    - Homework
+      ...
+      - PDE
+    - Something else
+      >x explanation
+        ...
+        >- reasons
+          - I don't like PDE
+          ...
+        <
+      <x
+      ...
+  <-
+
+  The different items in the list should be independent - if one matches (in
+  some sense) and others not, they are left out.
+
+  Indenting creates "sublists". If the parent item of a sublist matches, the
+  whole sublist matches.
+
+  But what is an "item" exactly? In case of "Something else", it contains quite a long block of information, which we don't want to print together. So, let's define that a note whose first line is the line begining with '-' will be called 'ItemEnter' and it will serve as a name of the whole block containing the rest of elements inside the item and all sub-items. When we find a line which starts a next item or closes the encompassing list, we will insert an 'ItemLeave'.
+
+  The items are never interleaved, so ItemLeave can always have an empty name. Its type must be defined to be some string that isn't enterable by user to avoid unexpected behaviour. Or, which would be better, we could create a custom 'BlockType' type which will be either a string or some literal value/object. Also a block of such type should be treated as a list in all ways.
+
+  ItemLeave will be inserted before each ItemEnter and Leave of a list (including ItemLeave), but only if there is at least one preceding item after the start of the encompassing list. So, the condition chain is something like this:
+  - If line starts with '-' and the most recent unmatched Enter is a list
+    (either '>-' or another item), then parse this line as a beginning of an
+    ItemEnter. Use the same logic as for parsing Note to parse the whole
+    paragraph.
+  - If the previous unmatched enter is ItemEnter and its indent is >= the indent of currently parsed ItemEnter, then insert an ItemLeave.
+  - Iterate the previous point. This iteration is guaranteed to end with an ItemEnter with smaller indent or the encompassing '>-'.
+
+  >- list
+    - lvl1
+      - lvl2
+        - lvl3
+        # <-
+      # <-
+    # <-
+    - lvl1:1
+    # <-
+  <-
+
+  I imagined that the condition chain be the same for parsing the list's Leave,
+  but user-entered blocks CAN be interleaved, which can create for example the
+  following situation:
+
+  >- first list
+    - item
+      >- interleaved list
+        - foo
+          <- first list
+        - we are still in interleaved list, this item is a sibling of 'foo'
+      <- interleaved list
+
+  How on earth are we supposed to make sence of this? What does it represent?
 
