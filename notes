@@ -557,7 +557,7 @@ Timeline - lists:
 
   But what is an "item" exactly? In case of "Something else", it contains quite a long block of information, which we don't want to print together. So, let's define that a note whose first line is the line begining with '-' will be called 'ItemEnter' and it will serve as a name of the whole block containing the rest of elements inside the item and all sub-items. When we find a line which starts a next item or closes the encompassing list, we will insert an 'ItemLeave'.
 
-  The items are never interleaved, so ItemLeave can always have an empty name. Its type must be defined to be some string that isn't enterable by user to avoid unexpected behaviour. Or, which would be better, we could create a custom 'BlockType' type which will be either a string or some literal value/object. Also a block of such type should be treated as a list in all ways.
+  The items are never interleaved (NOT TRUE, see below), so ItemLeave can always have an empty name. Its type must be defined to be some string that isn't enterable by user to avoid unexpected behaviour. Or, which would be better, we could create a custom 'BlockType' type which will be either a string or some literal value/object. Also a block of such type should be treated as a list in all ways.
 
   ItemLeave will be inserted before each ItemEnter and Leave of a list (including ItemLeave), but only if there is at least one preceding item after the start of the encompassing list. So, the condition chain is something like this:
   - If line starts with '-' and the most recent unmatched Enter is a list
@@ -586,9 +586,23 @@ Timeline - lists:
     - item
       >- interleaved list
         - foo
+    # <- item
           <- first list
+        # <- foo
         - we are still in interleaved list, this item is a sibling of 'foo'
+        # <-
       <- interleaved list
 
-  How on earth are we supposed to make sence of this? What does it represent?
+  How on earth are we supposed to make sense of this? What does it represent?
+  I filled in the virtual ItemLeaves in the most straightforward way and I think
+  that there is no point in trying to do it better.
+
+  This situation implies that there CAN be interleaved items, so we have to
+  create some unique identifiers. Linenumbers are the perfect choice.
+
+  The algorithm for ItemEnters doesn't change, but the algorithm for '<-' is
+  slightly more complicated. Search through unmatched Enters, saving each open
+  item. Each such sequence of open items is immediatelly preceded by a list
+  Enter. If the list Enter is matched by the parsed Leave, close all saved
+  items and then the list. If not, forget all saved items and continue.
 

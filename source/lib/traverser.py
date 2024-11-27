@@ -2,7 +2,6 @@
 import re
 import sys
 from collections.abc import Iterator
-from dataclasses import dataclass, field
 from math import inf
 from typing import Iterable, TypeAlias
 from itertools import repeat, chain
@@ -99,9 +98,9 @@ class Syntax:
     ITEM = '-'
 
 
-@dataclass(slots=True)
 class Element:
-    linenumber: int
+    def __init__(self, linenumber: int):
+        self.linenumber = linenumber
 
     def get_sync(self) -> str:
         return str(self.linenumber)
@@ -110,45 +109,44 @@ class Element:
         return 0
 
 
-@dataclass(slots=True)
 class Empty(Element):
-    line: str
+    def __init__(self, linenumber: int, line: str):
+        super().__init__(linenumber)
+        self.line = line
 
     def __str__(self) -> str:
         return self.line
 
 
-@dataclass(slots=True)
 class Ellipse(Empty):
-    line: str = Syntax.ELLIPSE
+    def __init__(self, linenumber: int, line: str = Syntax.ELLIPSE):
+        super().__init__(linenumber, line)
 
     def get_indent(self) -> int:
         return get_indent(self.line)
 
 
-@dataclass(slots=True)
 class Spaced(Element):
-    empty_line: Empty | None
+    def __init__(self, linenumber: int, empty_line: Empty | None):
+        super().__init__(linenumber)
+        self.empty_line = empty_line
 
 
-@dataclass(slots=True)
 class Date(Spaced):
-    # the line in file_in where the date appeared
-    linenumber: int = 0
-    empty_line: Empty | None = None
-    day: DateElement = 0
-    month: DateElement = 0
-    year: DateElement = 0
-    indent: int = 0
-    day_of_week: str | None = field(default=None, init=False)
-
-    def __post_init__(self):
+    def __init__(
+            self, linenumber: int = 0, empty_line: Empty | None = 0,
+            day: DateElement = 0, month: DateElement = 0, year: DateElement = 0,
+            indent: int = 0
+    ):
+        super().__init__(linenumber, empty_line)
         try:
-            self.day = ExtendedInt(self.day)
-            self.month = ExtendedInt(self.month)
-            self.year = ExtendedInt(self.year)
+            self.day = ExtendedInt(day)
+            self.month = ExtendedInt(month)
+            self.year = ExtendedInt(year)
         except ValueError as e:
-            raise LineParsingError(self.linenumber, e)
+            raise LineParsingError(linenumber, e)
+        self.indent = indent
+        self.day_of_week: str | None = None
 
     def get_day_of_week(self) -> str:
         if self.day_of_week is None:
@@ -231,10 +229,12 @@ class Date(Spaced):
         )))
 
 
-@dataclass(slots=True)
 class Dated(Spaced):
-    date: Date
-    line: str
+    def __init__(self, linenumber: int, empty_line: Empty | None, date: Date,
+                 line: str):
+        super().__init__(linenumber, empty_line)
+        self.date = date
+        self.line = line
 
     def __str__(self) -> str:
         return self.line
@@ -243,13 +243,12 @@ class Dated(Spaced):
         return get_indent(self.line)
 
 
-@dataclass(slots=True)
 class Description(Dated):
-    name: str
-    descriptions: Iterable[str]
-
-    def __post_init__(self):
-        self.descriptions = tuple(self.descriptions)
+    def __init__(self, linenumber: int, empty_line: Empty | None, date: Date,
+                 line: str, name: str, descriptions: Iterable[str]):
+        super().__init__(linenumber, empty_line, date, line)
+        self.name = name
+        self.descriptions = tuple(descriptions)
 
     def __repr__(self):
         return f'{self.linenumber}|{Syntax.DESCRIPTION} {self.name}' + ''.join(
@@ -257,28 +256,29 @@ class Description(Dated):
         )
 
 
-@dataclass(slots=True)
 class Block(Dated):
-    type: str
-    name: str
+    def __init__(self, linenumber: int, empty_line: Empty | None, date: Date,
+                 line: str, type: str, name: str):
+        super().__init__(linenumber, empty_line, date, line)
+        self.type = type
+        self.name = name
 
 
-@dataclass(slots=True)
 class Enter(Block):
-    descriptions: Iterable[str]
-    printed: bool = field(default=False, init=False)
-    # set if a corresponding Leave was found, but cannot be printed because
-    # of interleaved blocks. Prevents matching this Enter to another Leave.
-    waiting: bool = field(default=False, init=False)
-    # list of linenumbers of Leaves that are waiting for this BlockEnter to
-    # be resolved - either by printing it because of a matched element inside,
-    # or by leaving without a match and without any other unresolved interleaved
-    # block. When this BlockEnter is resolved, the BlockLeaves waiting for it
-    # are checked.
-    waited_by: list['Leave'] = field(default_factory=list, init=False)
-
-    def __post_init__(self):
-        self.descriptions = tuple(self.descriptions)
+    def __init__(self, linenumber: int, empty_line: Empty | None, date: Date,
+                 line: str, type: str, name: str, descriptions: Iterable[str], ):
+        super().__init__(linenumber, empty_line, date, line, type, name)
+        self.descriptions = tuple(descriptions)
+        self.printed: bool = False
+        # set if a corresponding Leave was found, but cannot be printed because
+        # of interleaved blocks. Prevents matching this Enter to another Leave.
+        self.waiting: bool = False
+        # list of linenumbers of Leaves that are waiting for this BlockEnter to
+        # be resolved - either by printing it because of a matched element
+        # inside, or by leaving without a match and without any other unresolved
+        # interleaved block. When this BlockEnter is resolved, the BlockLeaves
+        # waiting for it are checked.
+        self.waited_by: list['Leave'] = []
 
     def __repr__(self):
         return (
@@ -290,33 +290,29 @@ class Enter(Block):
         )
 
 
-@dataclass(slots=True)
 class Leave(Block):
-    # the linenumber of Enter it has been matched to
-    linenumber_enter: int = field(default=0, init=False)
-    # set of linenumbers of interleaved Enters this block is waiting for
-    # to be resolved - either by printing them because of a matched element
-    # inside, or by leaving without a match and without any other unresolved
-    # interleaved block.
-    waiting_for: set[int] = field(default_factory=set, init=False)
+    def __init__(self, linenumber: int, empty_line: Empty | None, date: Date,
+                 line: str, type: str, name: str):
+        super().__init__(linenumber, empty_line, date, line, type, name)
+        # the linenumber of Enter it has been matched to
+        self.linenumber_enter: int = 0
+        # set of linenumbers of interleaved Enters this block is waiting for
+        # to be resolved - either by printing them because of a matched element
+        # inside, or by leaving without a match and without any other unresolved
+        # interleaved block.
+        self.waiting_for: set[int] = set()
 
     def __repr__(self):
         return f'{self.linenumber}|{Syntax.LEAVE}{self.type} {self.name}'
 
 
-@dataclass(slots=True)
 class Note(Dated):
-    # is actually a string - consecutive linenumbers delimited by newlines
-    linenumber: int
-    searchable: str = field(default='', init=False)
-    _last_linenumber: int = field(init=False)
-    _sync: str = field(init=False)
-
-    def __post_init__(self) -> None:
-        self._last_linenumber = self.linenumber
-        # noinspection PyTypeChecker
-        self._sync = str(self.linenumber)
-        self.searchable = self.line
+    def __init__(self, linenumber: int, empty_line: Empty | None, date: Date,
+                 line: str):
+        super().__init__(linenumber, empty_line, date, line)
+        self.searchable: str = line
+        self._last_linenumber: int = linenumber
+        self._sync: str = str(linenumber)
 
     def add_line(self, line: str) -> None:
         self.line += '\n' + line
