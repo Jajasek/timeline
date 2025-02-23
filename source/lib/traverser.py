@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import re
 import sys
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from collections.abc import Iterator
 from math import inf
-from typing import Iterable, TypeAlias, Protocol
+from typing import Iterable, TypeAlias, Protocol, runtime_checkable
 from itertools import repeat, chain
 import datetime
 
@@ -20,6 +20,10 @@ class LineParsingError(Exception):
 
 
 class StructureError(Exception):
+    pass
+
+
+class UnknownCommandError(Exception):
     pass
 
 
@@ -88,6 +92,7 @@ it is always converted to ExtendedInt as the standard representation.
 
 class Syntax:
     COMMENT = '#'
+    COMMAND = '@@'
     DATE = '@'
     DATE_DELIMITER = '.'
     ENTER = '>'
@@ -99,12 +104,13 @@ class Syntax:
     ITEM = '-'
 
 
-class Element(Protocol):
-    linenumber: int
+class Element(ABC):
+    def __init__(self, linenumber: int):
+        self.linenumber = linenumber
 
     @abstractmethod
     def __str__(self) -> str:
-        raise NotImplemented
+        raise NotImplementedError
 
     def get_sync(self) -> str:
         return str(self.linenumber)
@@ -113,9 +119,44 @@ class Element(Protocol):
         return 0
 
 
+class Command(Element):
+    def __str__(self) -> str:
+        return ''
+
+    @classmethod
+    def parse(cls, linenumber: int, line: str) -> 'Command':
+        match line.split():
+            case ['reset']:
+                return Reset(linenumber)
+            case _:
+                raise UnknownCommandError(line, "Unknown command")
+
+    @abstractmethod
+    def apply(self, traverser: 'Traverser') -> None:
+        raise NotImplementedError
+
+
+class Reset(Command):
+    # FIXME: the implementation of reset as a command has a lot of problems, see
+    #  some other TODOs and FIXMEs from this commit.
+    #  SOLUTION: use @@ as an 'override' date. Implement it by adding an
+    #   'epoch' attribute to date, which would increment with each override.
+    #   This is needed, because then each printed date recognizes that it should
+    #   print itself as an 'override' date, when it is the first date with
+    #   larger epoch. The one which user marked as an 'override' could have been
+    #   skipped. Implement the ordering, this will enable us to retain the
+    #   chronologicity test and 'accidentally' fixes the FIXME_ in list.py. That
+    #   is a sign of a good implementation :)
+    def __init__(self, linenumber: int):
+        super().__init__(linenumber)
+
+    def apply(self, traverser: 'Traverser') -> None:
+        traverser.date = Date(self.linenumber)
+
+
 class Empty(Element):
     def __init__(self, linenumber: int, line: str):
-        self.linenumber = linenumber
+        super().__init__(linenumber)
         self.line = line
 
     def __str__(self) -> str:
@@ -138,7 +179,7 @@ class Spaced(Element):
 
 class Date(Spaced):
     def __init__(
-            self, linenumber: int = 0, empty_line: Empty | None = 0,
+            self, linenumber: int = 0, empty_line: Empty | None = None,
             day: DateElement = 0, month: DateElement = 0, year: DateElement = 0,
             indent: int = 0
     ):
@@ -366,6 +407,11 @@ class Traverser:
                 # don't save Empty as last parsed element, we aren't interested
                 # in that
                 continue
+            elif isinstance(element, Command):
+                element.apply(self)
+                # don't save Command as last parsed element, we aren't
+                # interested in that
+                continue
             elif isinstance(element, Date):
                 # check chronology
                 if not element > self.date:
@@ -422,6 +468,19 @@ class Traverser:
 
             if not processed_line:
                 yield from yielder(Empty(linenumber, line))
+            elif startswith(Syntax.COMMAND):
+                # TODO: I don't know whether to format commands for nice
+                #  output, or rather skip them in output. I am more inclined
+                #  to skip them in the output, because they are meant to
+                #  provide information to the software, not to the user. But
+                #  I am in doubts, because that would silently create
+                #  non-monotonic dates in the output.
+                #  Other solution is to write non-monotonic dates with @@ (and
+                #  do so even in the output) and use something different for
+                #  commands. Maybe '#!'? That would justify skipping them in the
+                #  output.
+                #  !!!IMPORTANT!!!: FILTER OPERATION MUST STAY IDEMPOTENT!!!
+                yield Command.parse(linenumber, processed_line)
             # date
             elif startswith(Syntax.DATE):
                 numbers = processed_line.split(Syntax.DATE_DELIMITER)

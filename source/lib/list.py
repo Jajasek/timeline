@@ -26,6 +26,7 @@ def main():
         myprint = partial(print, '\n', sep='', end='')
         date_printed = Date()
         for enter in traverser.blocks.values():
+            # FIXME: this condition breaks when dates reset
             if enter.date > date_printed:
                 date_printed = enter.date
                 myprint(enter.date)
