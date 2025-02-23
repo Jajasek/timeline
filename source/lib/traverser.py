@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 import re
 import sys
+from abc import abstractmethod
 from collections.abc import Iterator
 from math import inf
-from typing import Iterable, TypeAlias
+from typing import Iterable, TypeAlias, Protocol
 from itertools import repeat, chain
 import datetime
 
@@ -98,9 +99,12 @@ class Syntax:
     ITEM = '-'
 
 
-class Element:
-    def __init__(self, linenumber: int):
-        self.linenumber = linenumber
+class Element(Protocol):
+    linenumber: int
+
+    @abstractmethod
+    def __str__(self) -> str:
+        raise NotImplemented
 
     def get_sync(self) -> str:
         return str(self.linenumber)
@@ -111,7 +115,7 @@ class Element:
 
 class Empty(Element):
     def __init__(self, linenumber: int, line: str):
-        super().__init__(linenumber)
+        self.linenumber = linenumber
         self.line = line
 
     def __str__(self) -> str:
